@@ -7,6 +7,9 @@ touch /home/www/$name/bind.conf
 chmod 0010 /home/www/$name
 
 useradd -b /home/www -k /dev/null -m $name
+groupadd $name
+usermod -a -G $name $name
+
 chown -R $name:$name /home/www/$name/
 
 mkdir -p /home/www/$name/chroot/tmp
@@ -85,26 +88,28 @@ service php7.0-fpm restart
 
 cat > /etc/nginx/conf.d/$name.conf << EOF
 server {
-        listen 0.0.0.0:80;
-        listen [::]:80;
-        server_name $name www.$name;
+    listen 0.0.0.0:80;
+    listen [::]:80;
+    server_name $name www.$name;
 
-        root /home/www/$name/chroot/data-$name;
-        index index.html index.htm index.php;
+    root /home/www/$name/chroot/data-$name;
+    index index.html index.htm index.php;
 
-	access_log /home/www/$name/chroot/log/nginx_access.log;
-	error_log /home/www/$name/chroot/log/nginx_error.log error;
+    access_log /home/www/$name/chroot/log/nginx_access.log;
+    error_log /home/www/$name/chroot/log/nginx_error.log error;
 
-        location / {
-                try_files \$uri \$uri/ =404;
-        }
+    location / {
+        try_files \$uri \$uri/ =404;
+        # WordPress
+        # try_files $uri $uri/ /index.php?q=$uri&$args;
+    }
 
-        location ~ \.php$ {
-                try_files  \$uri =404;
-                include /etc/nginx/fastcgi_params;
-                fastcgi_pass unix:/var/run/php/php7.0-fpm-$name.sock;
-                fastcgi_param SCRIPT_FILENAME /data-$name\$fastcgi_script_name;
-        }
+    location ~ \.php$ {
+        try_files  \$uri =404;
+        include /etc/nginx/fastcgi_params;
+        fastcgi_pass unix:/var/run/php/php7.0-fpm-$name.sock;
+        fastcgi_param SCRIPT_FILENAME /data-$name\$fastcgi_script_name;
+    }
 }
 EOF
 
@@ -113,6 +118,9 @@ echo '<?php phpinfo(); ?>' > /home/www/$name/chroot/data-$name/test.php
 chown -R $name:$name /home/www/$name/chroot/data-$name/*
 chmod -R 0640 /home/www/$name/chroot/data-$name/*
 usermod -a -G $name www-data
+
+chmod -R g+rX /home/www/$name/*
+chmod -R u+rX /home/www/$name/*
 
 service nginx restart
 
